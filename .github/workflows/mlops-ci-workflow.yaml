@@ -31,3 +31,19 @@ jobs:
         run: |
           echo "Tests will run here."
           echo "Add pytest or other tests in the future."
+
+      - name: Run Data processing Tests
+        run: |
+          pyton src/data/run_processing.py --input data/raw/house_data.csv --output data/processed/cleaned_house_data_v1.csv
+
+      - name: Do Feature Engineering
+        run: |
+          pyton src/data/run_processing.py --input data/raw/house_data.csv --output data/processed/cleaned_house_data_v1.csv
+          
+      - name: Train the Model
+        run: |
+          pyton src/data/run_processing.py \
+          --input data/raw/house_data.csv \
+          --output data/processed/cleaned_house_data_v1.csv \
+          --model-dir models --mlflow-tracking-uri http://localhost:5000
+          
