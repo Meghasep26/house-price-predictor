@@ -75,6 +75,6 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           push: true
-          tags: meghasep26/fastapi{{ github.sha }} 
+          tags: meghasep26/fastapi:${{ github.sha }}
           context: "."
           file: "deployment/fastapi/Dockerfile"       
