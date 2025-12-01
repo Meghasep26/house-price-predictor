@@ -37,11 +37,13 @@ jobs:
             --input data/raw/house_data.csv \
             --output data/processed/cleaned_house_data_v1.csv
           
-      - name: Run Feature Engineering tests
+      - name: Do Feature Engineering
         run: |
-          python src/features/engineering.py\
+          python src/features/engineering.py \
            --input data/processed/cleaned_house_data_v1.csv \
-           --output data/processed/data_scientists_features.csv
+           --output data/processed/data_scientists_features.csv \
+            --preprocessor models/trained_preprocessor_v1.pkl
+  
           
 
       - name: Setup MLflow Tracking Server 
