@@ -63,9 +63,9 @@ jobs:
 
       - name: Train the Model 
         run: | 
-         python src/data/run_processing.py \ 
-         --input data/raw/house_data.csv \ 
-         --output data/processed/cleaned_house_data_v1.csv \ 
+         python src/models/train_model.py \ 
+         --config configs/model_config.yaml \
+         --data-path data/processed/data_scientists_features.csv \
          --model-dir models --mlflow-tracking-uri http://localhost:5000
 
       - name: Cleaning up MLflow Tracking Server 
