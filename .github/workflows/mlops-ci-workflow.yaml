@@ -37,18 +37,12 @@ jobs:
             --input data/raw/house_data.csv \
             --output data/processed/cleaned_house_data_v1.csv
           
-      - name: Run feature engineering
+      - name: Run Feature Engineering
         run: |
-          if [ -f src/features/engineer.py ]; then
-            python -u src/features/engineer.py --input data/processed/cleaned_house_data_v1.csv --output data/processed/data_scientists_features.csv
-          elif [ -f src/features/engineer.py ]; then
-            # fallback if file name differs
-            python -u src/features/engineer.py --input data/processed/cleaned_house_data_v1.csv --output data/processed/data_scientists_features.csv
-          else
-            echo "ERROR: engineer script not found (expected src/features/engineer.py or src/features/engineer.py)" >&2
-            ls -la src/features || true
-            exit 1
-          fi
+         python src/features/engineer.py \
+         --input data/processed/cleaned_house_data_v1.csv \
+         --output data/processed/data_scientists_features.csv \
+         --preprocessor models/preprocessor.pkl
   
           
 
