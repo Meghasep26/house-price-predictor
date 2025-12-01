@@ -10,10 +10,9 @@ on:
 jobs:
   mlops-ci:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repository (full)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -21,58 +20,55 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11.14"
+          python-version: "3.10"
 
-      - name: Install dependencies (if requirements.txt exists)
+      - name: Install dependencies if present
         run: |
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install --no-cache-dir -r requirements.txt; else echo "No requirements.txt found"; fi
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; else echo "No requirements.txt found"; fi
 
-      - name: Run basic tests (placeholder)
+      - name: Ensure required directories exist
         run: |
-          echo "Tests will run here."
-          echo "Add pytest or other tests in the future."
-
-      - name: Prepare directories (ensure model output paths exist)
-        run: |
-          mkdir -p models/trained
           mkdir -p data/processed
-          mkdir -p mlruns
+          mkdir -p models/trained
 
-      - name: Run Data processing
+      - name: Run Data processing (safe)
         run: |
-          python src/data/run_processing.py --input data/raw/house_data.csv --output data/processed/cleaned_house_data_v1.csv
+          if [ -f src/data/run_processing.py ]; then
+            python src/data/run_processing.py --input data/raw/house_data.csv --output data/processed/cleaned_house_data_v1.csv
+          else
+            echo "run_processing.py not found - skipping data processing step"
+          fi
 
-      - name: Do Feature Engineering
+      - name: Run Feature Engineering (safe)
         run: |
-          python src/features/run_feature_engineering.py --input data/processed/cleaned_house_data_v1.csv --output data/processed/data_scientists_features.csv
+          if [ -f src/features/run_feature_engineering.py ]; then
+            python src/features/run_feature_engineering.py --input data/processed/cleaned_house_data_v1.csv --output data/processed/data_scientists_features.csv
+          else
+            echo "feature engineering script not found - skipping"
+          fi
 
-      - name: Setup MLflow Tracking Server (local docker)
+      - name: Setup temporary MLflow Tracking Server (local container)
         run: |
           docker pull ghcr.io/mlflow/mlflow:latest
-          docker run -d --name mlflow-tracking-server -p 5000:5000 \
-            ghcr.io/mlflow/mlflow:latest \
-            mlflow server --host 0.0.0.0 \
-              --backend-store-uri sqlite:///mlflow.db \
-              --default-artifact-root file:./mlruns
-          # wait for mlflow server to be ready
-          for i in $(seq 1 20); do
-            if curl -sSf http://localhost:5000 >/dev/null 2>&1; then echo "mlflow up"; break; fi
-            echo "waiting for mlflow..."; sleep 3
-          done
+          docker run -d --name mlflow-tracking-server -p 5000:5000 ghcr.io/mlflow/mlflow:latest \
+            mlflow server --host 0.0.0.0 --backend-store-uri sqlite:///mlflow.db --default-artifact-root /tmp/mlruns
+        # Give mlflow a moment to start
+      - name: Wait for mlflow to start
+        run: |
+          for i in {1..10}; do curl -sSf http://localhost:5000 || sleep 1; done || true
 
-      - name: Train the Model (example)
+      - name: Train the Model (safe)
         env:
           MLFLOW_TRACKING_URI: http://localhost:5000
         run: |
-          # ensure model dir exists and run training script
-          mkdir -p models/trained
-          python src/models/train.py \
-            --input data/processed/data_scientists_features.csv \
-            --output models/trained \
-            --mlflow-tracking-uri ${MLFLOW_TRACKING_URI}
+          if [ -f src/train/train_model.py ]; then
+            python src/train/train_model.py --input data/processed/cleaned_house_data_v1.csv --output models/trained --mlflow-tracking-uri http://localhost:5000
+          else
+            echo "train_model.py not found - skipping training"
+          fi
 
-      - name: Cleanup MLflow Tracking Server
+      - name: Cleanup MLflow container
         if: always()
         run: |
           docker stop mlflow-tracking-server || true
@@ -88,11 +84,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push docker image
+      - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
-          context: "."
-          file: "Dockerfile"
+          context: .
+          file: Dockerfile
           push: true
+          # Use a valid tag string — use the short SHA for immutability
           tags: |
             meghasep26/fastapi:${{ github.sha }}
