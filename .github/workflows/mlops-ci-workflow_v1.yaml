@@ -69,7 +69,7 @@ jobs:
           python src/models/train_model.py \
             --config configs/model_config.yaml \
             --data data/processed/data_scientists_features.csv \
-            --models-dir models/trained \
+            --models-dir models \
             --mlflow-tracking-uri http://localhost:5555
 
       - name: Cleanup MLflow Tracking Server
@@ -77,3 +77,16 @@ jobs:
           docker stop mlflow-tracking-server
           docker rm mlflow-tracking-server 
           docker rmi ghcr.io/mlflow/mlflow:latest
+
+      - name: Run data processing
+        run: |
+          python src/data/run_processing.py \
+            --input data/raw/house_data.csv \
+            --output data/processed/cleaned_house_data_v1.csv
+
+      - name: Run feature engineering
+        run: |
+          python src/features/engineer.py \
+            --input data/processed/cleaned_house_data_v1.csv \
+            --output data/processed/data_scientists_features.csv \
+            --preprocessor models/trained/preprocessor.pkl
