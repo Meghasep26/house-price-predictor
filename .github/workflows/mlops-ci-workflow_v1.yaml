@@ -48,7 +48,7 @@ jobs:
           python src/models/train_model.py \
           --config configs/model_config.yaml \
           --data data/processed/data_scientists_features.csv \
-          --modela-dir models \
+          --models-dir models 
           --mlflow-tracking-uri http://localhost:5000 
 
       
