@@ -1,0 +1,104 @@
+name: MLOps CI Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch: {}
+
+jobs:
+  mlops-ci:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONUNBUFFERED: 1
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11.14"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run data processing
+        # Make sure this script exists at the path below and accepts these args.
+        run: |
+          python src/data/run_processing.py \
+            --input data/raw/house_data.csv \
+            --output data/processed/cleaned_house_data_v1.csv
+
+      - name: Run feature engineering
+        # Adjust script name and required args if yours are different.
+        run: |
+          # create processed dir if not exists
+          mkdir -p data/processed
+          python src/features/engineer.py \
+            --input data/processed/cleaned_house_data_v1.csv \
+            --output data/processed/data_scientists_features.csv \
+            --preprocessor configs/preprocessor.yaml
+
+      - name: Run feature-engineering verification (optional)
+        run: |
+          ls -l data/processed
+          wc -l data/processed/data_scientists_features.csv || true
+
+      - name: Setup MLflow Tracking Server (local)
+        run: |
+          docker pull ghcr.io/mlflow/mlflow:latest
+          docker run -d --name mlflow-tracking-server -p 5000:5000 ghcr.io/mlflow/mlflow:latest \
+            mlflow server --host 0.0.0.0 \
+            --backend-store-uri sqlite:///mlflow.db \
+            --default-artifact-root /tmp/mlruns
+        # Give the server a moment to start
+      - name: Wait for MLflow to be ready
+        run: |
+          echo "Waiting for MLflow to start..."
+          sleep 8
+
+      - name: Train the model
+        # Ensure script accepts these flags. Set models output dir to models/trained
+        run: |
+          mkdir -p models/trained
+          python src/models/train_model.py \
+            --config configs/model_config.yaml \
+            --data data/processed/data_scientists_features.csv \
+            --models-dir models/trained \
+            --mlflow-tracking-uri http://localhost:5000
+
+      - name: Verify models saved
+        run: |
+          echo "Models directory content:"
+          ls -la models/trained || (echo "No models found" && exit 1)
+
+      - name: Cleanup MLflow Tracking Server
+        if: always()
+        run: |
+          docker stop mlflow-tracking-server || true
+          docker rm mlflow-tracking-server || true
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: "."
+          file: "Dockerfile"
+          push: true
+          tags: |
+            meghasep26/fastapi:${{ github.sha }}
