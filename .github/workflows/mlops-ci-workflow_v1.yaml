@@ -52,6 +52,17 @@ jobs:
             --backend-store-uri sqlite:///mlflow.db \
             --default-artifact-root /tmp/mlruns
 
+      - name: Wait for MLflow
+        run: |
+          timeout=60
+          while ! curl -sSf http://localhost:5555/health > /dev/null 2>&1; do
+            echo "Waiting for MLflow..."
+            timeout=$((timeout - 5))
+            sleep 5
+            if [ $timeout -le 0 ]; then echo "MLflow did not start in time"; exit 1; fi
+          done
+          echo "MLflow is up"
+          
       - name: Train the model
         run: |
           python src/models/train_model.py \
