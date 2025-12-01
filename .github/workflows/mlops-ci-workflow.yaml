@@ -39,7 +39,7 @@ jobs:
           
       - name: Run Feature Engineering tests
         run: |
-          python src/features/run_engineering.py\
+          python src/features/engineering.py\
            --input data/processed/cleaned_house_data_v1.csv \
            --output data/processed/data_scientists_features.csv
           
