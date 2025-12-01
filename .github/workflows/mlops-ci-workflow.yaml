@@ -77,4 +77,4 @@ jobs:
           push: true
           tags: meghasep26/fastapi:${{ github.sha }}
           context: "."
-          file: "deployment/fastapi/Dockerfile"       
+          file: "Dockerfile"      
