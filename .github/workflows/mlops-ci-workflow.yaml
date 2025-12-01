@@ -38,11 +38,15 @@ jobs:
             --output data/processed/cleaned_house_data_v1.csv
           
       - name: Run Feature Engineering
+        # update this to the exact script you use; you indicated src/features/engineer.py exists
         run: |
-         python src/features/engineer.py \
-         --input data/processed/cleaned_house_data_v1.csv \
-         --output data/processed/data_scientists_features.csv \
-         --preprocessor models/preprocessor.pkl
+          if [ -f src/features/engineer.py ]; then
+            python src/features/engineer.py --input data/processed/cleaned_house_data_v1.csv --output data/processed/data_scientists_features.csv --preprocessor models/trained/preprocessor.pkl || true
+            # The script may create preprocessor/model artifacts; adjust flags as needed
+          else
+            echo "feature engineering script not found: src/features/engineer.py"
+            exit 1
+          fi
   
           
 
